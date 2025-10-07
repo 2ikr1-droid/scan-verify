@@ -171,8 +171,10 @@
                     { 
                         fps: 10, 
                         qrbox: {width: 250, height: 150},
-                        // Gunakan kamera belakang secara eksplisit
-                        supportedScanTypes: [Html5QrcodeSupportedDevices. rearCamera],
+                        // Gunakan kamera belakang secara eksplisit (lebih andal menggunakan videoConstraints)
+                        videoConstraints: { 
+                            facingMode: { exact: "environment" } 
+                        },
                         rememberLastUsedCamera: true
                     },
                     /* verbose= */ false
