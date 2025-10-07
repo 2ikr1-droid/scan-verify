@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barcode Scanner - Pengecekan Nomor Seri</title>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+    <!-- Gunakan CDN yang berbeda -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" integrity="sha512-+ZaJTU2m0Vh7pOmtKJ6R7zFEXv3lZ9RqtrJ0LMdgL5T8Hp0UJZCdNw2MMNKjBL0k9W5d1O2+0Gk0Hr3yFQ5ALw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -454,6 +455,16 @@
         const cameraSelector = document.getElementById('cameraSelector');
         const cameraList = document.getElementById('cameraList');
         
+        // Cek apakah library terload
+        function checkLibraryLoaded() {
+            if (typeof Html5Qrcode === 'undefined') {
+                showResult("Error: Scanner library tidak terload. Refresh halaman.", 'error');
+                startScannerBtn.disabled = true;
+                return false;
+            }
+            return true;
+        }
+        
         // Event listener untuk file input
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -506,6 +517,7 @@
         
         // Memulai scanner
         startScannerBtn.addEventListener('click', function() {
+            if (!checkLibraryLoaded()) return;
             startScanner();
         });
         
@@ -728,8 +740,15 @@
             }
         }
         
-        // Inisialisasi
+        // Inisialisasi - Cek library saat halaman load
         document.addEventListener('DOMContentLoaded', function() {
+            // Cek library terload
+            setTimeout(() => {
+                if (!checkLibraryLoaded()) {
+                    showResult("Error: Scanner library gagal load. Silakan refresh halaman.", 'error');
+                }
+            }, 1000);
+            
             // Contoh data untuk demo
             const sampleData = `SN00123456\nSN00234567\nSN00345678\nSN00456789\nSN00567890\nSN00678901\nSN00789012\nSN00890123\nSN00901234\nSN01012345`;
             processSerialNumbers(sampleData);
