@@ -62,7 +62,7 @@
         <!-- Area Input Daftar Nomor Seri (DI BAWAH) -->
         <div class="bg-white p-5 rounded-xl shadow-lg mb-6">
             <label for="serialList" class="block text-lg font-semibold text-gray-700 mb-2">Daftar Nomor Seri Target</label>
-            <p class="text-sm text-gray-500 mb-2">Nomor yang valid akan dihapus otomatis dari daftar ini.</p>
+            <p class="text-sm text-gray-500 mb-2">Nomor yang valid akan dihapus setelah Anda mengkonfirmasi pada pop-up.</p>
             <textarea id="serialList" rows="8" placeholder="Contoh:&#10;SN12345678&#10;SN12345679&#10;SN12345680" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-sm"></textarea>
             <div id="listCount" class="text-xs text-gray-500 mt-1">0 nomor seri dimuat.</div>
         </div>
@@ -75,7 +75,18 @@
             <h3 class="text-2xl font-bold mb-3" id="modalTitle">Hasil</h3>
             <p class="mb-4 text-gray-600" id="modalMessage"></p>
             <div class="text-lg font-mono break-all font-semibold" id="modalSerial"></div>
-            <button id="closeModalButton" class="mt-6 w-full py-2 rounded-lg text-white font-semibold shadow-md transition duration-150">Tutup & Lanjutkan Scan</button>
+            
+            <!-- Tombol Konfirmasi/Aksi -->
+            <div id="modalActions" class="mt-6 flex flex-col space-y-3">
+                <!-- Tombol ini hanya muncul jika Match = true -->
+                <button id="confirmDeleteButton" class="w-full py-2 rounded-lg text-white font-semibold shadow-md transition duration-150 bg-green-600 hover:bg-green-700" style="display:none;">
+                    Hapus & Lanjutkan Scan
+                </button>
+                <!-- Tombol ini muncul jika Match = false ATAU setelah konfirmasi -->
+                <button id="continueScanButton" class="w-full py-2 rounded-lg text-white font-semibold shadow-md transition duration-150 bg-blue-500 hover:bg-blue-600">
+                    Lanjutkan Scan
+                </button>
+            </div>
         </div>
     </div>
 
@@ -88,6 +99,7 @@
         let serialNumberSet = new Set();
         let html5QrcodeScanner = null;
         const readerId = "reader"; // ID elemen div kamera
+        let lastScannedSerial = null; // Menyimpan hasil scan terakhir sebelum dikonfirmasi
 
         // Elemen DOM
         const serialListElement = document.getElementById('serialList');
@@ -101,7 +113,8 @@
         const modalTitle = document.getElementById('modalTitle');
         const modalMessage = document.getElementById('modalMessage');
         const modalSerial = document.getElementById('modalSerial');
-        const closeModalButton = document.getElementById('closeModalButton');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        const continueScanButton = document.getElementById('continueScanButton');
 
         /**
          * Mengambil data dari Set dan memperbarui konten textarea.
@@ -139,9 +152,6 @@
             serialNumberSet = new Set(serials);
             listCountElement.textContent = `${serialNumberSet.size} nomor seri dimuat.`;
             
-            if (serialNumberSet.size === 0) {
-                // Jika daftar kosong, tampilkan pesan agar pengguna tahu
-            }
             return true;
         }
         
@@ -153,42 +163,44 @@
          * @param {string} title - Judul modal.
          * @param {string} message - Pesan di modal.
          * @param {string} serial - Nomor seri yang dipindai.
-         * @param {boolean} isSuccess - Status keberhasilan (untuk styling).
+         * @param {boolean} isSuccess - Status keberhasilan (untuk styling dan tombol).
          */
         function showModal(title, message, serial, isSuccess) {
+            lastScannedSerial = serial; // Simpan serial yang baru dipindai
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             modalSerial.textContent = serial;
             
-            closeModalButton.classList.remove('bg-green-600', 'bg-red-600');
-            modalContent.classList.remove('scale-95');
-
+            // Atur styling dan tombol berdasarkan hasil pencocokan
             if (isSuccess) {
                 modalTitle.classList.remove('text-red-600');
                 modalTitle.classList.add('text-green-600');
-                closeModalButton.classList.add('bg-green-600');
+                confirmDeleteButton.style.display = 'block'; // Tampilkan tombol Hapus
+                continueScanButton.classList.remove('bg-blue-500');
+                continueScanButton.classList.add('bg-gray-500'); // Tombol Lanjut menjadi abu-abu
+                continueScanButton.textContent = "Lewati (Jangan Hapus)";
             } else {
                 modalTitle.classList.remove('text-green-600');
                 modalTitle.classList.add('text-red-600');
-                closeModalButton.classList.add('bg-red-600');
+                confirmDeleteButton.style.display = 'none'; // Sembunyikan tombol Hapus
+                continueScanButton.classList.remove('bg-gray-500');
+                continueScanButton.classList.add('bg-blue-500'); // Tombol Lanjut menjadi biru
+                continueScanButton.textContent = "Lanjutkan Scan";
             }
             
+            modalContent.classList.remove('scale-95');
             validationModal.classList.add('open');
             modalContent.classList.add('scale-100');
         }
 
         /**
-         * Menyembunyikan modal pop-up dan melanjutkan pemindaian jika sebelumnya di-pause.
+         * Menyembunyikan modal pop-up.
          */
         function hideModal() {
             modalContent.classList.remove('scale-100');
             modalContent.classList.add('scale-95');
             validationModal.classList.remove('open');
-            
-            // Lanjutkan pemindaian jika scanner sedang aktif/paused
-            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-                 html5QrcodeScanner.resume();
-            }
+            lastScannedSerial = null; // Reset serial terakhir
         }
 
         /**
@@ -199,23 +211,24 @@
             const serial = decodedText.trim();
             const isMatch = serialNumberSet.has(serial);
 
-            if (isMatch) {
-                // HENTIKAN SEMENTARA SCANNER untuk mencegah pemindaian kedua
-                if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-                    html5QrcodeScanner.pause();
-                }
+            // Cek apakah hasil scan ini sama dengan yang terakhir dipindai dan belum dikonfirmasi
+            // Ini membantu mengurangi pop-up ganda dari kode yang sama saat scanner berjalan
+            if (serial === lastScannedSerial) {
+                // Abaikan, karena pop-up untuk serial ini sudah ditampilkan
+                return; 
+            }
+            
+            // Simpan serial yang baru dipindai dan tampilkan modal
+            lastScannedSerial = serial;
 
-                // Panggil modal sukses
+            if (isMatch) {
                 showModal(
-                    "✅ PENCARIAN BERHASIL!",
-                    "Nomor seri ini DITEMUKAN dalam daftar target. Telah dihapus dari daftar.",
+                    "✅ DITEMUKAN!",
+                    "Nomor seri ini ada dalam daftar target. Konfirmasi untuk menghapusnya.",
                     serial,
                     true
                 );
-                // Hapus item dari daftar dan perbarui textarea
-                removeSerialFromList(serial);
             } else {
-                // Panggil modal gagal (pemindai tetap aktif)
                 showModal(
                     "❌ TIDAK DITEMUKAN",
                     "Nomor seri ini TIDAK ADA dalam daftar target.",
@@ -225,9 +238,21 @@
             }
         }
 
-        // Event listener untuk tombol tutup modal
-        closeModalButton.addEventListener('click', hideModal);
+        // --- Event Handlers Modal ---
 
+        // 1. Logika untuk tombol "Hapus & Lanjutkan Scan"
+        confirmDeleteButton.addEventListener('click', () => {
+            if (lastScannedSerial) {
+                removeSerialFromList(lastScannedSerial); // Hapus nomor seri dari daftar
+            }
+            hideModal(); // Tutup modal dan lanjutkan pemindaian
+        });
+
+        // 2. Logika untuk tombol "Lanjutkan Scan" / "Lewati"
+        continueScanButton.addEventListener('click', () => {
+            hideModal(); // Tutup modal dan lanjutkan pemindaian
+        });
+        
         /**
          * Callback saat terjadi kesalahan pemindaian (dibiarkan kosong).
          */
@@ -276,7 +301,10 @@
         async function stopScanner() {
             if (html5QrcodeScanner) {
                 try {
-                    await html5QrcodeScanner.clear();
+                    // Cek apakah scanner sedang berjalan sebelum clear
+                    if (html5QrcodeScanner.isScanning) {
+                        await html5QrcodeScanner.clear();
+                    }
                     // Setelah clear berhasil:
                     document.getElementById(readerId).style.display = 'none';
                     startButton.style.display = 'block';
