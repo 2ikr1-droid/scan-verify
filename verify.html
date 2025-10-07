@@ -3,499 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barcode Scanner - Pengecekan Nomor Seri</title>
-    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+    <title>Pencocok Nomor Seri Barang</title>
+    <!-- Memuat Tailwind CSS untuk styling responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Library html5-qrcode untuk pemindaian barcode/QR code -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
+        /* Menggunakan font Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
-            background-color: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-            padding: 20px;
-            max-width: 100%;
-            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
         }
-        
-        .container {
-            max-width: 800px;
+        /* Style untuk area pemindaian kamera */
+        #reader {
+            width: 100%;
+            max-width: 400px; /* Batasi lebar pada layar besar */
             margin: 0 auto;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        h1 {
-            color: #2c3e50;
-            font-size: 1.8rem;
-            margin-bottom: 10px;
-        }
-        
-        .description {
-            color: #7f8c8d;
-            font-size: 0.95rem;
-        }
-        
-        .section {
-            margin-bottom: 25px;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-        }
-        
-        h2 {
-            color: #3498db;
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-        }
-        
-        .file-input-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .file-input-label {
-            display: inline-block;
-            padding: 10px 15px;
-            background-color: #3498db;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            text-align: center;
-            transition: background-color 0.3s;
-        }
-        
-        .file-input-label:hover {
-            background-color: #2980b9;
-        }
-        
-        #fileInput {
-            display: none;
-        }
-        
-        .button {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 10px;
-        }
-        
-        .button:hover {
-            background-color: #27ae60;
-        }
-        
-        .button.secondary {
-            background-color: #e74c3c;
-        }
-        
-        .button.secondary:hover {
-            background-color: #c0392b;
-        }
-        
-        #scanner-container {
-            position: relative;
-            width: 100%;
-            height: 300px;
-            background-color: #000;
-            border-radius: 8px;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
             overflow: hidden;
-            margin-bottom: 15px;
-            display: none;
-        }
-        
-        #scanner-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-        }
-        
-        #scanner-frame {
-            width: 80%;
-            height: 150px;
-            border: 2px solid #2ecc71;
-            border-radius: 8px;
-            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
-        }
-        
-        #scanner-instruction {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-weight: bold;
-            z-index: 11;
-        }
-        
-        #result {
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            text-align: center;
-            font-weight: bold;
-            display: none;
-        }
-        
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .serial-list {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 10px;
-            background-color: white;
-        }
-        
-        .serial-item {
-            padding: 8px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .serial-item:last-child {
-            border-bottom: none;
-        }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .status-found {
-            background-color: #2ecc71;
-        }
-        
-        .status-not-found {
-            background-color: #e74c3c;
-        }
-        
-        .status-pending {
-            background-color: #f39c12;
-        }
-        
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 10px 0;
-        }
-        
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 20px;
-            color: #7f8c8d;
-            font-size: 0.85rem;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 15px;
-            }
-            
-            h1 {
-                font-size: 1.5rem;
-            }
-            
-            .button {
-                padding: 15px;
-            }
+            display: none; /* Sembunyikan secara default */
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Barcode Scanner - Pengecekan Nomor Seri</h1>
-            <p class="description">Unggah file teks berisi nomor seri, lalu gunakan scanner untuk mencocokkan barcode</p>
-        </header>
-        
-        <div class="section">
-            <h2>1. Unggah File Nomor Seri</h2>
-            <div class="file-input-container">
-                <label for="fileInput" class="file-input-label">Pilih File Teks (.txt)</label>
-                <input type="file" id="fileInput" accept=".txt">
-                <div id="fileInfo" style="margin-top: 10px;"></div>
-            </div>
+<body class="p-4 sm:p-6 min-h-screen bg-gray-50">
+
+    <div class="max-w-xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Pencocok Nomor Seri</h1>
+        <p class="text-sm text-gray-600 mb-4 text-center">Tempelkan daftar nomor seri Anda (satu nomor per baris) di bawah ini, lalu mulai pemindai.</p>
+
+        <!-- Area Input Daftar Nomor Seri -->
+        <div class="bg-white p-5 rounded-xl shadow-lg mb-6">
+            <label for="serialList" class="block text-lg font-semibold text-gray-700 mb-2">Daftar Nomor Seri Target</label>
+            <textarea id="serialList" rows="8" placeholder="Contoh:&#10;SN12345678&#10;SN12345679&#10;SN12345680" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-sm"></textarea>
+            <div id="listCount" class="text-xs text-gray-500 mt-1">0 nomor seri dimuat.</div>
         </div>
-        
-        <div class="section">
-            <h2>2. Scanner Barcode</h2>
-            <button id="startScanner" class="button">Buka Kamera Scanner</button>
-            <button id="stopScanner" class="button secondary" style="display: none;">Tutup Scanner</button>
-            
-            <div id="scanner-container">
-                <div id="scanner-overlay">
-                    <div id="scanner-frame"></div>
-                </div>
-                <div id="scanner-instruction">Arahkan barcode ke dalam frame</div>
-            </div>
-            
-            <div class="loading" id="scannerLoading">
-                <div class="loading-spinner"></div>
-                <p>Menginisialisasi scanner...</p>
-            </div>
-            
-            <div id="result"></div>
+
+        <!-- Tombol dan Area Scanner -->
+        <div class="flex flex-col space-y-4">
+            <button id="startButton" class="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-xl shadow-md hover:bg-green-700 transition duration-150 transform hover:scale-[1.02] active:scale-95">
+                Mulai Pindai Barcode
+            </button>
+            <button id="stopButton" class="w-full px-6 py-3 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 transition duration-150 transform hover:scale-[1.02] active:scale-95" style="display: none;">
+                Stop Pemindaian
+            </button>
         </div>
-        
-        <div class="section">
-            <h2>3. Daftar Nomor Seri</h2>
-            <div id="serialList" class="serial-list">
-                <p style="text-align: center; color: #7f8c8d;">Belum ada data. Silakan unggah file teks.</p>
-            </div>
+
+        <div id="reader" class="mt-6"></div>
+
+        <!-- Area Hasil -->
+        <div class="mt-8 p-5 rounded-xl shadow-xl transition-all duration-300" id="resultCard">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Hasil Pemindaian Terakhir</h2>
+            <div id="scanResult" class="text-2xl font-mono break-all text-gray-700">Belum ada hasil.</div>
+            <div id="matchStatus" class="text-xl font-bold mt-3"></div>
         </div>
-        
-        <footer>
-            <p>Aplikasi Barcode Scanner untuk Pengecekan Nomor Seri</p>
-        </footer>
     </div>
 
     <script>
-        // Variabel global
-        let serialNumbers = [];
-        let scannerActive = false;
-        
+        // --- Konfigurasi Firebase/Firestore (Boilerplate Wajib) ---
+        // Variabel global ini harus didefinisikan meskipun tidak digunakan dalam logika ini.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        // Variabel untuk menyimpan Set Nomor Seri dan Instance Scanner
+        let serialNumberSet = new Set();
+        let html5QrcodeScanner = null;
+        const readerId = "reader"; // ID elemen div kamera
+
         // Elemen DOM
-        const fileInput = document.getElementById('fileInput');
-        const fileInfo = document.getElementById('fileInfo');
-        const startScannerBtn = document.getElementById('startScanner');
-        const stopScannerBtn = document.getElementById('stopScanner');
-        const scannerContainer = document.getElementById('scanner-container');
-        const scannerLoading = document.getElementById('scannerLoading');
-        const resultDiv = document.getElementById('result');
-        const serialList = document.getElementById('serialList');
-        
-        // Event listener untuk file input
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                fileInfo.textContent = `File terpilih: ${file.name}`;
-                
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const content = e.target.result;
-                    processSerialNumbers(content);
-                };
-                reader.readAsText(file);
+        const serialListElement = document.getElementById('serialList');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const resultCard = document.getElementById('resultCard');
+        const scanResultElement = document.getElementById('scanResult');
+        const matchStatusElement = document.getElementById('matchStatus');
+        const listCountElement = document.getElementById('listCount');
+
+        /**
+         * Memuat dan membersihkan daftar nomor seri dari textarea.
+         */
+        function loadSerialList() {
+            const listText = serialListElement.value;
+            // Pisahkan berdasarkan baris baru, hapus spasi kosong, dan filter baris kosong
+            const serials = listText.split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            // Buat Set baru untuk pencarian cepat O(1)
+            serialNumberSet = new Set(serials);
+            listCountElement.textContent = `${serialNumberSet.size} nomor seri dimuat.`;
+            
+            // Log daftar yang dimuat (Opsional untuk debug)
+            console.log("Daftar Nomor Seri Dimuat:", serialNumberSet);
+
+            if (serialNumberSet.size === 0) {
+                matchStatusElement.innerHTML = `<span class="text-red-600">ERROR:</span> Silakan masukkan nomor seri terlebih dahulu.`;
+                return false;
             }
-        });
-        
-        // Memproses nomor seri dari file teks
-        function processSerialNumbers(content) {
-            // Membersihkan dan memisahkan nomor seri
-            serialNumbers = content.split('\n')
-                .map(line => line.trim())
-                .filter(line => line.length > 0);
-            
-            // Menampilkan daftar nomor seri
-            displaySerialList();
+            return true;
         }
         
-        // Menampilkan daftar nomor seri
-        function displaySerialList() {
-            if (serialNumbers.length === 0) {
-                serialList.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Belum ada data. Silakan unggah file teks.</p>';
-                return;
-            }
+        // Memperbarui hitungan setiap kali input berubah
+        serialListElement.addEventListener('input', loadSerialList);
+
+        /**
+         * Callback saat pemindaian berhasil.
+         * @param {string} decodedText - Hasil pemindaian barcode/QR.
+         * @param {object} decodedResult - Detail hasil pemindaian.
+         */
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Scan berhasil: ${decodedText}`);
             
-            let html = '';
-            serialNumbers.forEach(serial => {
-                html += `
-                    <div class="serial-item">
-                        <span class="status-indicator status-pending"></span>
-                        ${serial}
-                    </div>
-                `;
-            });
+            // Tampilkan hasil pemindaian
+            scanResultElement.textContent = decodedText;
             
-            serialList.innerHTML = html;
-        }
-        
-        // Memulai scanner
-        startScannerBtn.addEventListener('click', function() {
-            startScanner();
-        });
-        
-        // Menghentikan scanner
-        stopScannerBtn.addEventListener('click', function() {
-            stopScanner();
-        });
-        
-        // Fungsi untuk memulai scanner
-        function startScanner() {
-            scannerLoading.style.display = 'block';
-            scannerContainer.style.display = 'block';
-            startScannerBtn.style.display = 'none';
-            stopScannerBtn.style.display = 'block';
-            
-            // Konfigurasi QuaggaJS
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: scannerContainer,
-                    constraints: {
-                        width: 640,
-                        height: 480,
-                        facingMode: "environment" // Gunakan kamera belakang
-                    }
-                },
-                decoder: {
-                    readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
-                },
-                locator: {
-                    patchSize: "medium",
-                    halfSample: true
-                }
-            }, function(err) {
-                if (err) {
-                    console.error(err);
-                    scannerLoading.style.display = 'none';
-                    resultDiv.textContent = "Gagal menginisialisasi scanner: " + err;
-                    resultDiv.className = "result error";
-                    resultDiv.style.display = 'block';
-                    return;
-                }
-                
-                scannerLoading.style.display = 'none';
-                Quagga.start();
-                scannerActive = true;
-            });
-            
-            // Event listener untuk hasil scan
-            Quagga.onDetected(function(result) {
-                if (result && result.codeResult) {
-                    const scannedCode = result.codeResult.code;
-                    checkSerialNumber(scannedCode);
-                }
-            });
-        }
-        
-        // Fungsi untuk menghentikan scanner
-        function stopScanner() {
-            if (scannerActive) {
-                Quagga.stop();
-                scannerActive = false;
-            }
-            
-            scannerContainer.style.display = 'none';
-            startScannerBtn.style.display = 'block';
-            stopScannerBtn.style.display = 'none';
-            resultDiv.style.display = 'none';
-        }
-        
-        // Memeriksa nomor seri yang discan
-        function checkSerialNumber(scannedCode) {
-            // Membersihkan kode yang discan
-            const cleanScannedCode = scannedCode.trim();
-            
-            // Mencari nomor seri yang cocok
-            const foundIndex = serialNumbers.findIndex(serial => 
-                serial.trim().toLowerCase() === cleanScannedCode.toLowerCase()
-            );
-            
-            // Menampilkan hasil
-            if (foundIndex !== -1) {
-                resultDiv.textContent = `✓ DITEMUKAN: ${cleanScannedCode}`;
-                resultDiv.className = "result success";
-                
-                // Memperbarui tampilan daftar
-                updateSerialListStatus(foundIndex, true);
+            // Bersihkan styling sebelumnya
+            resultCard.classList.remove('bg-red-100', 'bg-green-100');
+            matchStatusElement.className = 'text-xl font-bold mt-3';
+
+            // Cocokkan hasil dengan Set
+            const isMatch = serialNumberSet.has(decodedText.trim());
+
+            if (isMatch) {
+                matchStatusElement.textContent = "✅ DITEMUKAN (Match)";
+                matchStatusElement.classList.add('text-green-600');
+                resultCard.classList.add('bg-green-100');
+                // Hentikan pemindaian setelah match berhasil (opsional, bisa diubah jika ingin scan berulang)
+                // stopScanner();
             } else {
-                resultDiv.textContent = `✗ TIDAK DITEMUKAN: ${cleanScannedCode}`;
-                resultDiv.className = "result error";
-            }
-            
-            resultDiv.style.display = 'block';
-            
-            // Menghentikan scanner sementara
-            if (scannerActive) {
-                Quagga.stop();
-                scannerActive = false;
-                
-                // Menjalankan kembali scanner setelah 2 detik
-                setTimeout(() => {
-                    if (!scannerActive) {
-                        Quagga.start();
-                        scannerActive = true;
-                    }
-                }, 2000);
+                matchStatusElement.textContent = "❌ TIDAK DITEMUKAN (No Match)";
+                matchStatusElement.classList.add('text-red-600');
+                resultCard.classList.add('bg-red-100');
             }
         }
-        
-        // Memperbarui status nomor seri di daftar
-        function updateSerialListStatus(index, found) {
-            const serialItems = serialList.getElementsByClassName('serial-item');
-            if (serialItems[index]) {
-                const statusIndicator = serialItems[index].querySelector('.status-indicator');
-                statusIndicator.className = found ? 
-                    'status-indicator status-found' : 
-                    'status-indicator status-not-found';
+
+        /**
+         * Callback saat terjadi kesalahan pemindaian (misalnya tidak ada barcode terdeteksi).
+         * @param {string} errorMessage - Pesan kesalahan.
+         */
+        function onScanError(errorMessage) {
+            // Kita biarkan ini kosong untuk mencegah spamming console/UI dengan notifikasi "no code found"
+            // console.warn(`Scan error: ${errorMessage}`);
+        }
+
+        /**
+         * Memulai pemindaian kamera.
+         */
+        function startScanner() {
+            if (!loadSerialList()) return; // Cek dan muat daftar, batalkan jika kosong
+
+            // Sembunyikan input dan tombol mulai
+            serialListElement.disabled = true;
+            startButton.style.display = 'none';
+            stopButton.style.display = 'block';
+            document.getElementById(readerId).style.display = 'block';
+
+            // Kosongkan hasil sebelumnya
+            scanResultElement.textContent = "Arahkan kamera ke barcode...";
+            matchStatusElement.textContent = "";
+            resultCard.classList.remove('bg-red-100', 'bg-green-100');
+
+            // Inisialisasi dan mulai scanner
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    readerId, 
+                    { 
+                        fps: 10, 
+                        qrbox: {width: 250, height: 150},
+                        // Gunakan kamera belakang secara eksplisit
+                        supportedScanTypes: [Html5QrcodeSupportedDevices. rearCamera],
+                        rememberLastUsedCamera: true
+                    },
+                    /* verbose= */ false
+                );
+            }
+            
+            // Pastikan scanner belum berjalan sebelum memanggil render
+            if (!html5QrcodeScanner.isScanning) {
+                 html5QrcodeScanner.render(onScanSuccess, onScanError);
             }
         }
-        
-        // Inisialisasi
-        document.addEventListener('DOMContentLoaded', function() {
-            // Contoh data untuk demo (bisa dihapus)
-            const sampleData = `SN00123456\nSN00234567\nSN00345678\nSN00456789\nSN00567890`;
-            processSerialNumbers(sampleData);
+
+        /**
+         * Menghentikan pemindaian kamera.
+         */
+        async function stopScanner() {
+            if (html5QrcodeScanner) {
+                try {
+                    await html5QrcodeScanner.clear();
+                    // Setelah clear berhasil:
+                    document.getElementById(readerId).style.display = 'none';
+                    startButton.style.display = 'block';
+                    stopButton.style.display = 'none';
+                    serialListElement.disabled = false;
+                    scanResultElement.textContent = "Pemindaian dihentikan.";
+                    matchStatusElement.textContent = "";
+                } catch (err) {
+                    console.error("Gagal menghentikan scanner:", err);
+                    matchStatusElement.textContent = `Error stop: ${err.message}`;
+                }
+            }
+        }
+
+        // Event Listeners untuk tombol
+        startButton.addEventListener('click', startScanner);
+        stopButton.addEventListener('click', stopScanner);
+
+        // Muat daftar awal saat halaman dimuat (jika ada nilai default)
+        document.addEventListener('DOMContentLoaded', () => {
+             // Beri contoh nilai default
+            serialListElement.value = "A123-ABC-1\nB456-DEF-2\nC789-GHI-3\nD101-JKL-4";
+            loadSerialList();
         });
+        
     </script>
 </body>
 </html>
