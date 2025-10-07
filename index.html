@@ -141,7 +141,6 @@
             
             if (serialNumberSet.size === 0) {
                 // Jika daftar kosong, tampilkan pesan agar pengguna tahu
-                // Tidak perlu error blocking, hanya notifikasi
             }
             return true;
         }
@@ -179,12 +178,17 @@
         }
 
         /**
-         * Menyembunyikan modal pop-up.
+         * Menyembunyikan modal pop-up dan melanjutkan pemindaian jika sebelumnya di-pause.
          */
         function hideModal() {
             modalContent.classList.remove('scale-100');
             modalContent.classList.add('scale-95');
             validationModal.classList.remove('open');
+            
+            // Lanjutkan pemindaian jika scanner sedang aktif/paused
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                 html5QrcodeScanner.resume();
+            }
         }
 
         /**
@@ -196,6 +200,11 @@
             const isMatch = serialNumberSet.has(serial);
 
             if (isMatch) {
+                // HENTIKAN SEMENTARA SCANNER untuk mencegah pemindaian kedua
+                if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                    html5QrcodeScanner.pause();
+                }
+
                 // Panggil modal sukses
                 showModal(
                     "✅ PENCARIAN BERHASIL!",
@@ -206,7 +215,7 @@
                 // Hapus item dari daftar dan perbarui textarea
                 removeSerialFromList(serial);
             } else {
-                // Panggil modal gagal
+                // Panggil modal gagal (pemindai tetap aktif)
                 showModal(
                     "❌ TIDAK DITEMUKAN",
                     "Nomor seri ini TIDAK ADA dalam daftar target.",
@@ -288,7 +297,7 @@
         // Muat daftar awal saat halaman dimuat
         document.addEventListener('DOMContentLoaded', () => {
              // Beri contoh nilai default
-            serialListElement.value = "WSI5G122507S002084\nB456-DEF-2";
+            serialListElement.value = "A123-ABC-1\nB456-DEF-2\nC789-GHI-3\nD101-JKL-4";
             loadSerialList();
         });
         
