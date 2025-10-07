@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Scanner - Pengecekan Nomor Seri</title>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        h2 {
+            color: #3498db;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        
+        .file-input-label:hover {
+            background-color: #2980b9;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        
+        .button:hover {
+            background-color: #27ae60;
+        }
+        
+        .button.secondary {
+            background-color: #e74c3c;
+        }
+        
+        .button.secondary:hover {
+            background-color: #c0392b;
+        }
+        
+        .button.warning {
+            background-color: #f39c12;
+        }
+        
+        .button.warning:hover {
+            background-color: #d35400;
+        }
+        
+        #scanner-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        #scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        #scanner-frame {
+            width: 80%;
+            height: 150px;
+            border: 2px solid #2ecc71;
+            border-radius: 8px;
+            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
+        }
+        
+        #scanner-instruction {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            z-index: 11;
+        }
+        
+        #result {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .permission-help {
+            background-color: #e8f4fd;
+            border: 1px solid #b3d9f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .permission-help h3 {
+            color: #2980b9;
+            margin-bottom: 10px;
+        }
+        
+        .permission-help ol {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .permission-help li {
+            margin-bottom: 8px;
+        }
+        
+        .manual-input {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .manual-input input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .serial-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: white;
+        }
+        
+        .serial-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .serial-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-found {
+            background-color: #2ecc71;
+        }
+        
+        .status-not-found {
+            background-color: #e74c3c;
+        }
+        
+        .status-pending {
+            background-color: #f39c12;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .button {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Barcode Scanner - Pengecekan Nomor Seri</h1>
+            <p class="description">Unggah file teks berisi nomor seri, lalu gunakan scanner untuk mencocokkan barcode</p>
+        </header>
+        
+        <div class="section">
+            <h2>1. Unggah File Nomor Seri</h2>
+            <div class="file-input-container">
+                <label for="fileInput" class="file-input-label">Pilih File Teks (.txt)</label>
+                <input type="file" id="fileInput" accept=".txt">
+                <div id="fileInfo" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>2. Scanner Barcode</h2>
+            <button id="startScanner" class="button">Buka Kamera Scanner</button>
+            <button id="stopScanner" class="button secondary" style="display: none;">Tutup Scanner</button>
+            <button id="requestPermission" class="button warning" style="display: none;">Minta Izin Kamera</button>
+            
+            <div id="scanner-container">
+                <div id="scanner-overlay">
+                    <div id="scanner-frame"></div>
+                </div>
+                <div id="scanner-instruction">Arahkan barcode ke dalam frame</div>
+            </div>
+            
+            <div class="loading" id="scannerLoading">
+                <div class="loading-spinner"></div>
+                <p>Menginisialisasi scanner...</p>
+            </div>
+            
+            <div class="permission-help" id="permissionHelp">
+                <h3>Izin Kamera Ditolak - Solusi:</h3>
+                <ol>
+                    <li>Pastikan browser Anda memiliki izin untuk mengakses kamera</li>
+                    <li>Di Chrome: Ketuk ikon gembok/gambar di bilah alamat > Izinkan akses kamera</li>
+                    <li>Di Firefox: Ketuk ikon kamera diblokir di bilah alamat > Izinkan</li>
+                    <li>Jika masih bermasalah, coba gunakan input manual di bawah</li>
+                </ol>
+                <button id="tryAgain" class="button warning">Coba Lagi</button>
+            </div>
+            
+            <div class="manual-input" id="manualInput">
+                <h3>Input Manual Nomor Seri</h3>
+                <input type="text" id="manualSerialInput" placeholder="Masukkan nomor seri secara manual">
+                <button id="checkManual" class="button">Cek Nomor Seri</button>
+            </div>
+            
+            <div id="result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>3. Daftar Nomor Seri</h2>
+            <div id="serialList" class="serial-list">
+                <p style="text-align: center; color: #7f8c8d;">Belum ada data. Silakan unggah file teks.</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Aplikasi Barcode Scanner untuk Pengecekan Nomor Seri</p>
+        </footer>
+    </div>
+
+    <script>
+        // Variabel global
+        let serialNumbers = [];
+        let scannerActive = false;
+        
+        // Elemen DOM
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const startScannerBtn = document.getElementById('startScanner');
+        const stopScannerBtn = document.getElementById('stopScanner');
+        const requestPermissionBtn = document.getElementById('requestPermission');
+        const scannerContainer = document.getElementById('scanner-container');
+        const scannerLoading = document.getElementById('scannerLoading');
+        const resultDiv = document.getElementById('result');
+        const serialList = document.getElementById('serialList');
+        const permissionHelp = document.getElementById('permissionHelp');
+        const tryAgainBtn = document.getElementById('tryAgain');
+        const manualInput = document.getElementById('manualInput');
+        const manualSerialInput = document.getElementById('manualSerialInput');
+        const checkManualBtn = document.getElementById('checkManual');
+        
+        // Event listener untuk file input
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                fileInfo.textContent = `File terpilih: ${file.name}`;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    processSerialNumbers(content);
+                };
+                reader.readAsText(file);
+            }
+        });
+        
+        // Memproses nomor seri dari file teks
+        function processSerialNumbers(content) {
+            // Membersihkan dan memisahkan nomor seri
+            serialNumbers = content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // Menampilkan daftar nomor seri
+            displaySerialList();
+        }
+        
+        // Menampilkan daftar nomor seri
+        function displaySerialList() {
+            if (serialNumbers.length === 0) {
+                serialList.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Belum ada data. Silakan unggah file teks.</p>';
+                return;
+            }
+            
+            let html = '';
+            serialNumbers.forEach(serial => {
+                html += `
+                    <div class="serial-item">
+                        <span class="status-indicator status-pending"></span>
+                        ${serial}
+                    </div>
+                `;
+            });
+            
+            serialList.innerHTML = html;
+        }
+        
+        // Memulai scanner
+        startScannerBtn.addEventListener('click', function() {
+            startScanner();
+        });
+        
+        // Menghentikan scanner
+        stopScannerBtn.addEventListener('click', function() {
+            stopScanner();
+        });
+        
+        // Minta izin kamera secara manual
+        requestPermissionBtn.addEventListener('click', function() {
+            requestCameraPermission();
+        });
+        
+        // Coba lagi setelah error
+        tryAgainBtn.addEventListener('click', function() {
+            permissionHelp.style.display = 'none';
+            startScanner();
+        });
+        
+        // Cek nomor seri secara manual
+        checkManualBtn.addEventListener('click', function() {
+            const manualCode = manualSerialInput.value.trim();
+            if (manualCode) {
+                checkSerialNumber(manualCode);
+                manualSerialInput.value = '';
+            }
+        });
+        
+        // Fungsi untuk meminta izin kamera secara eksplisit
+        function requestCameraPermission() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    // Izin diberikan, tutup stream dan mulai scanner
+                    stream.getTracks().forEach(track => track.stop());
+                    startScanner();
+                })
+                .catch(function(err) {
+                    console.error('Error meminta izin kamera:', err);
+                    showPermissionHelp();
+                });
+        }
+        
+        // Fungsi untuk memulai scanner
+        function startScanner() {
+            scannerLoading.style.display = 'block';
+            scannerContainer.style.display = 'block';
+            startScannerBtn.style.display = 'none';
+            stopScannerBtn.style.display = 'block';
+            requestPermissionBtn.style.display = 'none';
+            permissionHelp.style.display = 'none';
+            manualInput.style.display = 'none';
+            
+            // Konfigurasi QuaggaJS
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: scannerContainer,
+                    constraints: {
+                        width: 640,
+                        height: 480,
+                        facingMode: "environment" // Gunakan kamera belakang
+                    }
+                },
+                decoder: {
+                    readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
+                },
+                locator: {
+                    patchSize: "medium",
+                    halfSample: true
+                }
+            }, function(err) {
+                if (err) {
+                    console.error("Error inisialisasi Quagga:", err);
+                    scannerLoading.style.display = 'none';
+                    
+                    if (err.name === 'NotAllowedError' || err.message.includes('permission')) {
+                        showPermissionHelp();
+                    } else {
+                        resultDiv.textContent = "Gagal menginisialisasi scanner: " + err.message;
+                        resultDiv.className = "result error";
+                        resultDiv.style.display = 'block';
+                        showManualInput();
+                    }
+                    return;
+                }
+                
+                scannerLoading.style.display = 'none';
+                Quagga.start();
+                scannerActive = true;
+            });
+            
+            // Event listener untuk hasil scan
+            Quagga.onDetected(function(result) {
+                if (result && result.codeResult) {
+                    const scannedCode = result.codeResult.code;
+                    checkSerialNumber(scannedCode);
+                }
+            });
+        }
+        
+        // Fungsi untuk menghentikan scanner
+        function stopScanner() {
+            if (scannerActive) {
+                Quagga.stop();
+                scannerActive = false;
+            }
+            
+            scannerContainer.style.display = 'none';
+            startScannerBtn.style.display = 'block';
+            stopScannerBtn.style.display = 'none';
+            requestPermissionBtn.style.display = 'block';
+            resultDiv.style.display = 'none';
+            manualInput.style.display = 'block';
+        }
+        
+        // Menampilkan panduan izin kamera
+        function showPermissionHelp() {
+            permissionHelp.style.display = 'block';
+            requestPermissionBtn.style.display = 'block';
+            scannerLoading.style.display = 'none';
+            showManualInput();
+        }
+        
+        // Menampilkan input manual
+        function showManualInput() {
+            manualInput.style.display = 'block';
+        }
+        
+        // Memeriksa nomor seri yang discan
+        function checkSerialNumber(scannedCode) {
+            // Membersihkan kode yang discan
+            const cleanScannedCode = scannedCode.trim();
+            
+            // Mencari nomor seri yang cocok
+            const foundIndex = serialNumbers.findIndex(serial => 
+                serial.trim().toLowerCase() === cleanScannedCode.toLowerCase()
+            );
+            
+            // Menampilkan hasil
+            if (foundIndex !== -1) {
+                resultDiv.textContent = `✓ DITEMUKAN: ${cleanScannedCode}`;
+                resultDiv.className = "result success";
+                
+                // Memperbarui tampilan daftar
+                updateSerialListStatus(foundIndex, true);
+            } else {
+                resultDiv.textContent = `✗ TIDAK DITEMUKAN: ${cleanScannedCode}`;
+                resultDiv.className = "result error";
+            }
+            
+            resultDiv.style.display = 'block';
+            
+            // Menghentikan scanner sementara
+            if (scannerActive) {
+                Quagga.stop();
+                scannerActive = false;
+                
+                // Menjalankan kembali scanner setelah 2 detik
+                setTimeout(() => {
+                    if (!scannerActive) {
+                        Quagga.start();
+                        scannerActive = true;
+                    }
+                }, 2000);
+            }
+        }
+        
+        // Memperbarui status nomor seri di daftar
+        function updateSerialListStatus(index, found) {
+            const serialItems = serialList.getElementsByClassName('serial-item');
+            if (serialItems[index]) {
+                const statusIndicator = serialItems[index].querySelector('.status-indicator');
+                statusIndicator.className = found ? 
+                    'status-indicator status-found' : 
+                    'status-indicator status-not-found';
+            }
+        }
+        
+        // Inisialisasi
+        document.addEventListener('DOMContentLoaded', function() {
+            // Contoh data untuk demo (bisa dihapus)
+            const sampleData = `SN00123456\nSN00234567\nSN00345678\nSN00456789\nSN00567890`;
+            processSerialNumbers(sampleData);
+            
+            // Tampilkan tombol minta izin dan input manual
+            requestPermissionBtn.style.display = 'block';
+            manualInput.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
