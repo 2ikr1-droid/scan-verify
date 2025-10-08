@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pencocok Nomor Seri Barang</title>
+    <!-- Memuat Tailwind CSS untuk styling responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Library html5-qrcode untuk pemindaian barcode/QR code -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* Menggunakan font Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+        }
+        /* Style untuk area pemindaian kamera */
+        #reader {
+            width: 100%;
+            max-width: 400px; /* Batasi lebar pada layar besar */
+            margin: 0 auto;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none; /* Sembunyikan secara default */
+        }
+        /* Style Modal */
+        .modal {
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+            visibility: hidden;
+            opacity: 0;
+            z-index: 50; /* Pastikan di atas elemen lain */
+        }
+        .modal.open {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 min-h-screen bg-gray-50">
+
+    <div class="max-w-xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Pencocok Nomor Seri Cepat</h1>
+        
+        <!-- Area Pemindai Barcode (DI ATAS) -->
+        <div class="bg-white p-5 rounded-xl shadow-lg mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Pemindai</h2>
+            <div id="reader"></div>
+            
+            <div class="flex flex-col space-y-4 mt-4">
+                <button id="startButton" class="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-xl shadow-md hover:bg-green-700 transition duration-150 transform hover:scale-[1.02] active:scale-95">
+                    Mulai Pindai Barcode
+                </button>
+                <button id="stopButton" class="w-full px-6 py-3 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 transition duration-150 transform hover:scale-[1.02] active:scale-95" style="display: none;">
+                    Stop Pemindaian
+                </button>
+            </div>
+            
+        </div>
+
+        <!-- Tombol Laporan -->
+        <div class="flex justify-center mb-6">
+            <button id="showReportButton" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-xl shadow-md transition duration-150 transform hover:scale-[1.02] active:scale-95" disabled>
+                Lihat Laporan Akhir (0 Valid)
+            </button>
+        </div>
+
+        <!-- Area Input Daftar Nomor Seri (DI BAWAH) -->
+        <div class="bg-white p-5 rounded-xl shadow-lg mb-6">
+            <label for="serialList" class="block text-lg font-semibold text-gray-700 mb-2">Daftar Nomor Seri Target</label>
+            <p class="text-sm text-gray-500 mb-2">Nomor yang valid akan dihapus setelah Anda mengkonfirmasi pada pop-up.</p>
+            <textarea id="serialList" rows="8" placeholder="Contoh:&#10;SN12345678&#10;SN12345679&#10;SN12345680" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-sm"></textarea>
+            <div id="listCount" class="text-xs text-gray-500 mt-1">0 nomor seri dimuat.</div>
+        </div>
+        
+    </div>
+
+    <!-- Modal Pop-up Hasil Pencocokan -->
+    <div id="validationModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 opacity-0">
+        <div class="bg-white w-full max-w-sm p-6 rounded-xl shadow-2xl transform transition-all duration-300 scale-95" id="modalContent">
+            <h3 class="text-2xl font-bold mb-3" id="modalTitle">Hasil</h3>
+            <p class="mb-4 text-gray-600" id="modalMessage"></p>
+            <div class="text-lg font-mono break-all font-semibold" id="modalSerial"></div>
+            
+            <!-- Tombol Konfirmasi/Aksi -->
+            <div id="modalActions" class="mt-6 flex flex-col space-y-3">
+                <!-- Tombol ini hanya muncul jika Match = true -->
+                <button id="confirmDeleteButton" class="w-full py-2 rounded-lg text-white font-semibold shadow-md transition duration-150 bg-green-600 hover:bg-green-700" style="display:none;">
+                    Hapus & Lanjutkan Scan
+                </button>
+                <!-- Tombol ini muncul jika Match = false ATAU setelah konfirmasi -->
+                <button id="continueScanButton" class="w-full py-2 rounded-lg text-white font-semibold shadow-md transition duration-150 bg-blue-500 hover:bg-blue-600">
+                    Lanjutkan Scan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Laporan Akhir -->
+    <div id="reportModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 opacity-0">
+        <div class="bg-white w-full max-w-lg h-[80vh] flex flex-col p-6 rounded-xl shadow-2xl transform transition-all duration-300 scale-95">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Laporan Nomor Seri Valid</h3>
+            <div class="flex-grow overflow-y-auto bg-gray-100 p-3 rounded-lg border border-gray-200">
+                <textarea id="reportOutput" class="w-full h-full p-2 text-sm font-mono border-none focus:ring-0 resize-none bg-gray-100" readonly></textarea>
+            </div>
+            <!-- TOMBOL UNDUH BARU -->
+            <button id="downloadReportButton" class="mt-4 w-full py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150">
+                Unduh Laporan (.txt)
+            </button>
+            <button id="closeReportButton" class="mt-3 w-full py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-150">
+                Tutup Laporan
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Konfigurasi Firebase/Firestore (Boilerplate Wajib) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        // Variabel untuk menyimpan Set Nomor Seri dan Instance Scanner
+        let serialNumberSet = new Set();
+        let html5QrcodeScanner = null;
+        const readerId = "reader"; // ID elemen div kamera
+        let lastScannedSerial = null; // Menyimpan hasil scan terakhir sebelum dikonfirmasi
+        
+        // Variabel untuk Laporan
+        let validatedSerials = []; // Array untuk menyimpan semua nomor seri yang berhasil dicocokkan
+        let currentReportText = ""; // Menyimpan teks laporan yang akan diunduh
+
+        // Elemen DOM
+        const serialListElement = document.getElementById('serialList');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const listCountElement = document.getElementById('listCount');
+        const showReportButton = document.getElementById('showReportButton');
+        
+        // Elemen Modal Validasi
+        const validationModal = document.getElementById('validationModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalSerial = document.getElementById('modalSerial');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        const continueScanButton = document.getElementById('continueScanButton');
+
+        // Elemen Modal Laporan
+        const reportModal = document.getElementById('reportModal');
+        const reportOutput = document.getElementById('reportOutput');
+        const closeReportButton = document.getElementById('closeReportButton');
+        const downloadReportButton = document.getElementById('downloadReportButton'); // Tombol Unduh Baru
+
+        /**
+         * Mengupdate teks tombol laporan dengan jumlah nomor seri yang telah divalidasi.
+         */
+        function updateReportButton() {
+            showReportButton.textContent = `Lihat Laporan Akhir (${validatedSerials.length} Valid)`;
+            showReportButton.disabled = validatedSerials.length === 0;
+            if (validatedSerials.length > 0) {
+                 showReportButton.classList.remove('bg-blue-600');
+                 showReportButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+            } else {
+                 showReportButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                 showReportButton.classList.add('bg-blue-600');
+            }
+        }
+
+        /**
+         * Mengambil data dari Set dan memperbarui konten textarea.
+         */
+        function updateListTextarea() {
+            const remainingSerials = Array.from(serialNumberSet).join('\n');
+            serialListElement.value = remainingSerials;
+            loadSerialList(); // Memuat ulang set dan menghitung ulang
+        }
+        
+        /**
+         * Menghapus nomor seri yang berhasil dipindai dari Set dan Textarea,
+         * dan menambahkannya ke daftar laporan.
+         * @param {string} serial - Nomor seri yang akan dihapus.
+         */
+        function removeSerialFromList(serial) {
+            if (serialNumberSet.has(serial)) {
+                serialNumberSet.delete(serial);
+                
+                // **Tambahkan ke daftar laporan**
+                validatedSerials.push({
+                    serial: serial,
+                    status: "DITEMUKAN / VALID",
+                    timestamp: new Date().toLocaleTimeString('id-ID')
+                });
+
+                updateListTextarea();
+                updateReportButton(); // Perbarui jumlah pada tombol laporan
+                console.log(`Nomor seri dihapus: ${serial}. Sisa: ${serialNumberSet.size}`);
+            }
+        }
+
+        /**
+         * Memuat dan membersihkan daftar nomor seri dari textarea.
+         */
+        function loadSerialList() {
+            const listText = serialListElement.value;
+            // Pisahkan berdasarkan baris baru, hapus spasi kosong, dan filter baris kosong
+            const serials = listText.split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            // Buat Set baru untuk pencarian cepat O(1)
+            serialNumberSet = new Set(serials);
+            listCountElement.textContent = `${serialNumberSet.size} nomor seri dimuat.`;
+            
+            return true;
+        }
+        
+        // Memperbarui hitungan setiap kali input berubah
+        serialListElement.addEventListener('input', loadSerialList);
+
+        /**
+         * Menampilkan modal pop-up hasil pencocokan.
+         */
+        function showModal(title, message, serial, isSuccess) {
+            lastScannedSerial = serial; 
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalSerial.textContent = serial;
+            
+            // Atur styling dan tombol berdasarkan hasil pencocokan
+            if (isSuccess) {
+                modalTitle.classList.remove('text-red-600');
+                modalTitle.classList.add('text-green-600');
+                confirmDeleteButton.style.display = 'block'; // Tampilkan tombol Hapus
+                continueScanButton.classList.remove('bg-blue-500');
+                continueScanButton.classList.add('bg-gray-500'); // Tombol Lanjut menjadi abu-abu
+                continueScanButton.textContent = "Lewati (Jangan Hapus)";
+            } else {
+                modalTitle.classList.remove('text-green-600');
+                modalTitle.classList.add('text-red-600');
+                confirmDeleteButton.style.display = 'none'; // Sembunyikan tombol Hapus
+                continueScanButton.classList.remove('bg-gray-500');
+                continueScanButton.classList.add('bg-blue-500'); // Tombol Lanjut menjadi biru
+                continueScanButton.textContent = "Lanjutkan Scan";
+            }
+            
+            modalContent.classList.remove('scale-95');
+            validationModal.classList.add('open');
+            modalContent.classList.add('scale-100');
+        }
+
+        /**
+         * Menyembunyikan modal pop-up hasil pencocokan.
+         */
+        function hideModal() {
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            validationModal.classList.remove('open');
+            lastScannedSerial = null; // Reset serial terakhir
+        }
+
+        /**
+         * Menyusun dan menampilkan modal laporan.
+         */
+        function showReport() {
+            let reportText = "";
+            
+            if (validatedSerials.length === 0) {
+                reportText = "Belum ada nomor seri yang berhasil divalidasi.";
+            } else {
+                // Buat header sederhana
+                reportText += "LAPORAN NOMOR SERI VALID\n";
+                reportText += "===================================================================\n";
+                // Padding untuk kolom: NO. 4, WAKTU SCAN 12, NOMOR SERI 20
+                reportText += " NO. | WAKTU SCAN | NOMOR SERI            | KETERANGAN\n";
+                reportText += "-----+------------+-----------------------+--------------------------\n";
+
+                // Isi data laporan
+                validatedSerials.forEach((item, index) => {
+                    const no = (index + 1).toString().padStart(4, ' ');
+                    const waktu = item.timestamp.padEnd(10, ' ');
+                    const serial = item.serial.padEnd(20, ' ');
+                    const status = item.status;
+                    reportText += `${no} | ${waktu} | ${serial} | ${status}\n`;
+                });
+                
+                reportText += "===================================================================\n";
+                reportText += `TOTAL NOMOR SERI VALID: ${validatedSerials.length}\n`;
+                reportText += `SISA NOMOR SERI DI DAFTAR: ${serialNumberSet.size}\n`;
+                
+                // Set teks laporan ke variabel global untuk diunduh
+                currentReportText = reportText;
+            }
+
+            reportOutput.value = reportText;
+            reportModal.classList.add('open');
+            // Pastikan textarea laporan difokuskan dan discroll ke atas
+            setTimeout(() => {
+                reportOutput.scrollTop = 0;
+            }, 100);
+        }
+
+        /**
+         * Menyembunyikan modal laporan.
+         */
+        function hideReport() {
+            reportModal.classList.remove('open');
+        }
+        
+        /**
+         * Memicu unduhan file teks laporan.
+         */
+        function downloadReport() {
+            if (!currentReportText) {
+                console.error("Tidak ada konten laporan untuk diunduh.");
+                return;
+            }
+            
+            // 1. Buat Blob dari teks laporan
+            const blob = new Blob([currentReportText], { type: 'text/plain;charset=utf-8' });
+            
+            // 2. Buat URL objek sementara
+            const url = URL.createObjectURL(blob);
+            
+            // 3. Buat elemen <a> sementara dan picu klik
+            const a = document.createElement('a');
+            const now = new Date();
+            const filename = `Laporan_Scan_SN_${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}_${now.getHours()}${now.getMinutes()}.txt`;
+            
+            a.href = url;
+            a.download = filename; 
+            document.body.appendChild(a);
+            a.click(); // Memicu unduhan
+            
+            // 4. Bersihkan elemen <a> dan URL objek
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log(`Laporan ${filename} berhasil diunduh.`);
+        }
+
+
+        /**
+         * Callback saat pemindaian berhasil.
+         */
+        function onScanSuccess(decodedText) {
+            const serial = decodedText.trim();
+            const isMatch = serialNumberSet.has(serial);
+
+            // Logika untuk mencegah pop-up ganda dari kode yang sama
+            if (serial === lastScannedSerial && validationModal.classList.contains('open')) {
+                return; 
+            }
+            
+            lastScannedSerial = serial;
+
+            if (isMatch) {
+                showModal(
+                    "✅ DITEMUKAN!",
+                    "Nomor seri ini ada dalam daftar target. Konfirmasi untuk menghapusnya.",
+                    serial,
+                    true
+                );
+            } else {
+                showModal(
+                    "❌ TIDAK DITEMUKAN",
+                    "Nomor seri ini TIDAK ADA dalam daftar target.",
+                    serial,
+                    false
+                );
+            }
+        }
+
+        // --- Event Handlers Modal Validasi ---
+
+        // 1. Logika untuk tombol "Hapus & Lanjutkan Scan"
+        confirmDeleteButton.addEventListener('click', () => {
+            if (lastScannedSerial) {
+                removeSerialFromList(lastScannedSerial); // Hapus dan catat ke laporan
+            }
+            hideModal(); // Tutup modal dan lanjutkan pemindaian
+        });
+
+        // 2. Logika untuk tombol "Lanjutkan Scan" / "Lewati"
+        continueScanButton.addEventListener('click', () => {
+            hideModal(); // Tutup modal dan lanjutkan pemindaian
+        });
+        
+        // --- Event Handlers Modal Laporan ---
+
+        showReportButton.addEventListener('click', showReport);
+        closeReportButton.addEventListener('click', hideReport);
+        downloadReportButton.addEventListener('click', downloadReport); // Event listener baru
+
+        /**
+         * Callback saat terjadi kesalahan pemindaian (dibiarkan kosong).
+         */
+        function onScanError(errorMessage) {
+            // Biarkan kosong untuk mencegah spamming console/UI
+        }
+
+        /**
+         * Memulai pemindaian kamera.
+         */
+        function startScanner() {
+            if (!loadSerialList()) return; 
+
+            // Sembunyikan/tampilkan tombol
+            serialListElement.disabled = true;
+            startButton.style.display = 'none';
+            stopButton.style.display = 'block';
+            document.getElementById(readerId).style.display = 'block';
+
+            // Inisialisasi dan mulai scanner
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    readerId, 
+                    { 
+                        fps: 10, 
+                        qrbox: {width: 250, height: 150},
+                        // Konfigurasi kamera belakang (environment) yang stabil
+                        videoConstraints: { 
+                            facingMode: { exact: "environment" } 
+                        },
+                        rememberLastUsedCamera: true
+                    },
+                    /* verbose= */ false
+                );
+            }
+            
+            // Render scanner hanya jika belum berjalan
+            if (!html5QrcodeScanner.isScanning) {
+                 html5QrcodeScanner.render(onScanSuccess, onScanError);
+            }
+        }
+
+        /**
+         * Menghentikan pemindaian kamera.
+         */
+        async function stopScanner() {
+            if (html5QrcodeScanner) {
+                try {
+                    // Cek apakah scanner sedang berjalan sebelum clear
+                    if (html5QrcodeScanner.isScanning) {
+                        await html5QrcodeScanner.clear();
+                    }
+                    // Setelah clear berhasil:
+                    document.getElementById(readerId).style.display = 'none';
+                    startButton.style.display = 'block';
+                    stopButton.style.display = 'none';
+                    serialListElement.disabled = false;
+                    hideModal(); // Pastikan modal validasi tertutup
+                    hideReport(); // Pastikan modal laporan tertutup
+                } catch (err) {
+                    console.error("Gagal menghentikan scanner:", err);
+                    // Tidak perlu menampilkan error di UI, cukup di konsol.
+                }
+            }
+        }
+
+        // Event Listeners untuk tombol Start/Stop
+        startButton.addEventListener('click', startScanner);
+        stopButton.addEventListener('click', stopScanner);
+
+        // Muat daftar awal saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+             // Beri contoh nilai default
+            serialListElement.value = "A123-ABC-1\nB456-DEF-2\nC789-GHI-3\nD101-JKL-4";
+            loadSerialList();
+            updateReportButton(); // Inisialisasi tombol laporan
+        });
+        
+    </script>
+</body>
+</html>
+
